@@ -1,0 +1,79 @@
+CREATE PROCEDURE SBO_SP_PostTransactionNotice
+(
+	in object_type nvarchar(20), 				-- SBO Object Type
+	in transaction_type nchar(1),			-- [A]dd, [U]pdate, [D]elete, [C]ancel, C[L]ose
+	in num_of_cols_in_key int,
+	in list_of_key_cols_tab_del nvarchar(255),
+	in list_of_cols_val_tab_del nvarchar(255)
+)
+LANGUAGE SQLSCRIPT 
+SQL SECURITY INVOKER 
+AS
+-- Return values
+error  int;				-- Result (0 for no error)
+error_message nvarchar (200); 		-- Error string to be displayed
+l int;
+CountI int;
+CountT int;
+T int;
+DocEntryT int;
+begin
+
+error := 0;
+error_message := N'Ok';
+
+--------------------------------------------------------------------------------------------------------------------------------
+
+--	ADD	YOUR	CODE	HERE
+
+
+IF :transaction_type ='A' AND (:Object_type = '15' )
+then
+  l :=0;
+   (Select count("VisOrder") into CountI from Form_V_table where "DocEntry" =:list_of_cols_val_tab_del);
+ 
+while(l<:CountI)
+do
+insert into "@FORM_V" ("DocEntry","LineId","VisOrder","U_Mark_No","U_Quantity","U_Start_Qty","U_End_Qty") values
+(
+(select "DocEntry" from Form_V_table where "DocEntry"=:list_of_cols_val_tab_del and "VisOrder"=:l),
+(select "VisOrder" from Form_V_table where "DocEntry"=:list_of_cols_val_tab_del and "VisOrder"=:l),
+(select "VisOrder" from Form_V_table where "DocEntry"=:list_of_cols_val_tab_del and "VisOrder"=:l),
+(select "U_MARK_No" from Form_V_table where "DocEntry"=:list_of_cols_val_tab_del and "VisOrder"=:l),
+(select "Quantity" from Form_V_table where "DocEntry"=:list_of_cols_val_tab_del and "VisOrder"=:l),
+(select "Start_Quantity" from Form_V_table where "DocEntry"=:list_of_cols_val_tab_del and "VisOrder"=:l),
+((select "Start_Quantity"  from Form_V_table where "DocEntry"=:list_of_cols_val_tab_del and "VisOrder"=:l)+
+(select "Quantity" from Form_V_table where "DocEntry"=:list_of_cols_val_tab_del and "VisOrder"=:l)-1));
+ 
+ l = :l + 1;
+ end while;
+end if;
+------------------------------TC updating value in table and from the day you deploy this code value will be added into the table------------------
+IF :transaction_type =('A') AND (:Object_type = '15'  )
+then 
+T :=0;
+ (select max("VisOrder") into CountT from TC_table where "DocEntry" =:list_of_cols_val_tab_del );
+-- (select "DocEntry" into DocEntryT from ODLN where "DocEntry" =:list_of_cols_val_tab_del );
+while(T<=:CountT)
+do
+insert into "@TC_D" ("DocEntry","LineId","VisOrder","U_Mark_No","U_Quantity","U_Start_Qty","U_End_Qty") values
+(
+(select "DocEntry" from TC_table where "DocEntry"=:list_of_cols_val_tab_del and "VisOrder"=:T),
+(select "VisOrder" from TC_table where "DocEntry"=:list_of_cols_val_tab_del and "VisOrder"=:T),
+(select "VisOrder" from TC_table where "DocEntry"=:list_of_cols_val_tab_del and "VisOrder"=:T),
+(select "U_MARK_No" from TC_table where "DocEntry"=:list_of_cols_val_tab_del and "VisOrder"=:T),
+(select "Quantity" from TC_table where "DocEntry"=:list_of_cols_val_tab_del and "VisOrder"=:T),
+(select "Start_Quantity" from TC_table where "DocEntry"=:list_of_cols_val_tab_del and "VisOrder"=:T),
+((select "Start_Quantity" from TC_table where "DocEntry"=:list_of_cols_val_tab_del and "VisOrder"=:T)+
+(select case when "Quantity"=0 then 1 else "Quantity" end from TC_table where "DocEntry"=:list_of_cols_val_tab_del and "VisOrder"=:T)-1)
+);
+T = :T + 1;
+end while;
+end if;
+
+--------------------------------------------------------------------------------------------------------------------------------
+
+-- Select the return values
+select :error, :error_message FROM dummy;
+
+end;

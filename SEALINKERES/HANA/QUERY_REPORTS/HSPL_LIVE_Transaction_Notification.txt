@@ -1,0 +1,514 @@
+alter PROCEDURE SBO_SP_TransactionNotification
+(
+	in object_type nvarchar(20), 				-- SBO Object Type
+	in transaction_type nchar(1),			-- [A]dd, [U]pdate, [D]elete, [C]ancel, C[L]ose
+	in num_of_cols_in_key int,
+	in list_of_key_cols_tab_del nvarchar(255),
+	in list_of_cols_val_tab_del nvarchar(255)
+)
+LANGUAGE SQLSCRIPT 
+SQL SECURITY INVOKER 
+AS
+-- Return values
+error  int;				-- Result (0 for no error)
+error_message nvarchar (200); 		-- Error string to be displayed
+a int;
+b int;
+c int;
+d int;
+e int;
+f int;
+g int;
+h int;
+i int;
+CountC int;
+LineNum int;
+CardCode nvarchar(255);
+Mark_no nvarchar(255);
+numatCard nvarchar(255);
+cardcode1 nvarchar(255);
+CountI int;
+l int;
+m int;
+ItemCode nvarchar(255);
+DocEntry int;
+DistCount int;
+DistNumber nvarchar(255);
+TCNumber int;
+SysNumber int;
+CountB int;
+LineNum1 int;
+ROW_HSN nvarchar(255);
+ITEM_HSN nvarchar(255);
+numatCard1 nvarchar(255);
+cardcode2 nvarchar(255);
+Pind nvarchar(255);
+counter int;
+C1 int;
+LineExist int;
+begin
+
+error := 0;
+error_message := N'Ok';
+
+--------------------------------------------------------------------------------------------------------------------------------
+
+--	ADD	YOUR	CODE	HERE
+---FORM_V UPDATE
+IF :transaction_type = ('U') AND (:Object_type = '15'  )
+then
+(SELECT count(*) into a
+FROM ODLN dln 
+INNER JOIN DLN1 DN1 ON DLN."DocEntry" = DN1."DocEntry" 
+LEFT OUTER JOIN OCRD crd ON dln."CardCode" = crd."CardCode" 
+WHERE dln."DocEntry" = :list_of_cols_val_tab_del AND IFNULL("U_DFVNum", '') = '' OR "U_DFVNum" = NULL AND "U_DFVReq" = 'YES' 
+AND crd."U_FormVReq" = 'YES' AND DN1."U_TCReq" = 'YES' AND DN1."BaseType" <> '15');
+
+if  a>0
+then
+Update ODLN set "U_DFVNum"=(select 1+ifnull((select max(cast(IFNULL("U_DFVNum",0) as integer)) from odln where odln."DocDate">=a."F_TaxDate" and odln."DocDate"<=a."T_TaxDate"),0)
+                                           from
+                                           (SELECT DISTINCT "DocNum", "F_TaxDate", "T_TaxDate" 
+   FROM ODLN dln 
+   INNER JOIN DLN1 DN1 ON DLN."DocEntry" = DN1."DocEntry" 
+   LEFT OUTER JOIN OCRD crd ON dln."CardCode" = crd."CardCode" 
+   LEFT OUTER JOIN OFPR fpr ON fpr."AbsEntry" = dln."FinncPriod" 
+   WHERE "U_DFVReq" = 'YES' AND crd."U_FormVReq" = 'YES' AND DN1."U_TCReq" = 'YES' AND dln."DocEntry" = :list_of_cols_val_tab_del)a)
+  
+where "DocEntry"=:list_of_cols_val_tab_del;
+end if;
+End if;
+-------FORM_V ADD
+IF :transaction_type = ('A') AND (:Object_type = '15')
+then
+Update ODLN set "U_DFVNum"=(SELECT 1 + IFNULL((SELECT MAX(CAST("U_DFVNum" AS integer)) FROM ODLN WHERE ODLN."DocDate" >= a."F_TaxDate" AND ODLN."DocDate" <= a. "T_TaxDate" ), 0) 
+FROM (SELECT DISTINCT "DocNum", "F_TaxDate", "T_TaxDate" 
+  FROM ODLN dln 
+  INNER JOIN DLN1 DN1 ON DLN."DocEntry" = DN1."DocEntry" 
+  LEFT OUTER JOIN OCRD crd ON dln."CardCode" = crd."CardCode" 
+  LEFT OUTER JOIN OFPR fpr ON fpr."AbsEntry" = dln."FinncPriod" 
+  WHERE "U_DFVReq" = 'YES' AND crd."U_FormVReq" = 'YES' AND DN1."U_TCReq" = 'YES' AND DN1."BaseType" <> '15' 
+  AND dln."DocEntry" = :list_of_cols_val_tab_del) AS a) where "DocEntry"=:list_of_cols_val_tab_del;
+end if;
+
+-----------------------TC NUMBER ADD-------------------------
+
+IF :transaction_type =('A') AND (:Object_type = '15'  )
+then 
+Update ODLN set "U_DTCNum"=(SELECT 1 + IFNULL((SELECT MAX(CAST(ifnull("U_DTCNum",'0') AS integer)) FROM ODLN WHERE year("DocDate") = year(a."DocDate")), 
+CASE WHEN year(a."DocDate") = 2019 THEN IFNULL(cast((SELECT "U_TCNum"  FROM "@TC_NUM" WHERE "Code" = 'TC')as integer), 0) ELSE 
+cast((SELECT "U_TCNum" FROM "@TC_NUM" WHERE right("Code", 4) = CAST(year(a."DocDate") AS varchar) AND left("Code", 2) = 'TC') as integer) END) 
+FROM 
+(SELECT DISTINCT "DocNum", dln."DocDate" 
+FROM ODLN dln 
+INNER JOIN DLN1 DN1 ON DLN."DocEntry" = DN1."DocEntry" 
+LEFT OUTER JOIN OCRD crd ON dln."CardCode" = crd."CardCode" 
+WHERE "U_DTCWCReq" = 'TC' AND DN1."U_RTCReq" = 'YES' AND DN1."BaseType" <> '15' AND dln."DocEntry" = :list_of_cols_val_tab_del) AS a
+)where "DocEntry"=:list_of_cols_val_tab_del;
+end if;
+--------------------TC NUMBER UPDATE------------------------
+IF :transaction_type = ('U') AND (:Object_type = '15'  )
+then
+(SELECT count(*) into b
+FROM ODLN dln 
+INNER JOIN DLN1 DN1 ON DLN."DocEntry" = DN1."DocEntry" 
+LEFT OUTER JOIN OCRD crd ON dln."CardCode" = crd."CardCode" 
+WHERE dln."DocEntry" = :list_of_cols_val_tab_del AND IFNULL("U_DTCNum", '') = '' OR "U_DTCNum" = NULL AND "U_DTCWCReq" = 'TC' 
+AND DN1."U_RTCReq" = 'YES' AND DN1."BaseType" <> '15' );
+if b>0
+then
+Update ODLN set "U_DTCNum"=(SELECT 1 + IFNULL((SELECT MAX(CAST(ifnull("U_DTCNum",'0') AS integer)) FROM ODLN WHERE year("DocDate") = year(a."DocDate")), 
+CASE WHEN year(a."DocDate") = 2019 THEN IFNULL(cast((SELECT "U_TCNum" FROM "@TC_NUM" WHERE "Code" = 'TC')as integer), 0) 
+ELSE cast((SELECT "U_TCNum" FROM "@TC_NUM" WHERE right("Code", 4) = CAST(year(a."DocDate") AS varchar) AND left("Code", 2) = 'TC') as integer) END) 
+FROM (SELECT DISTINCT "DocNum", dln."DocDate" 
+FROM ODLN dln 
+INNER JOIN DLN1 DN1 ON DLN."DocEntry" = DN1."DocEntry" 
+LEFT OUTER JOIN OCRD crd ON dln."CardCode" = crd."CardCode" 
+WHERE "U_DTCWCReq" = 'TC' AND DN1."U_RTCReq" = 'YES' AND DN1."BaseType" <> '15' AND dln."DocEntry" = :list_of_cols_val_tab_del)  
+a)where "DocEntry"=:list_of_cols_val_tab_del;
+end if;
+end if;
+-----------------------WC NUMBER ADD-------------------------
+IF :transaction_type =('A') AND (:Object_type = '15'  )
+then
+Update ODLN set "U_DWCNum"=(select 1+IFNULL((select MAX(CAST(ifnull("U_DWCNum",'0') AS integer)) from odln)
+,IFNULL(cast((SELECT "U_TCNum" FROM "@TC_NUM" WHERE "Code" = 'WC' )as integer), 0) )
+              from(SELECT DISTINCT "DocNum" FROM ODLN dln 
+              INNER JOIN DLN1 DN1 ON DLN."DocEntry" = DN1."DocEntry" 
+              LEFT OUTER JOIN OCRD crd ON dln."CardCode" = crd."CardCode" 
+              WHERE "U_DTCWCReq" = 'WC' AND DN1."U_RWCReq" = 'YES' AND DN1."BaseType" <> '15' AND dln."DocEntry" = :list_of_cols_val_tab_del )
+              a)where "DocEntry"=:list_of_cols_val_tab_del;
+end if;
+
+-------------------WC NUMBER UPDATE-----------------------------------------------------
+IF :transaction_type = ('U') AND (:Object_type = '15'  )
+then
+(SELECT count(*) into i FROM ODLN dln 
+			INNER JOIN DLN1 DN1 ON DLN."DocEntry" = DN1."DocEntry" 
+			LEFT OUTER JOIN OCRD crd ON dln."CardCode" = crd."CardCode" 
+			WHERE dln."DocEntry" = :list_of_cols_val_tab_del AND IFNULL("U_DWCNum", '') = '' OR "U_DWCNum" = NULL AND "U_DTCWCReq" = 'WC' 
+AND DN1."U_RWCReq" = 'YES' AND DN1."BaseType" <> '15' );
+if i>0
+then
+Update ODLN set "U_DWCNum"=(SELECT 1 + IFNULL((SELECT MAX(CAST(IFNULL("U_DWCNum", '0') AS integer)) FROM ODLN), 
+											(SELECT "U_TCNum" FROM "@TC_NUM" WHERE "Code" = 'WC')) 
+							FROM (SELECT DISTINCT "DocNum" FROM ODLN dln 
+									INNER JOIN DLN1 DN1 ON DLN."DocEntry" = DN1."DocEntry" 
+									LEFT OUTER JOIN OCRD crd ON dln."CardCode" = crd."CardCode" 
+									WHERE "U_DTCWCReq" = 'WC' AND DN1."U_RWCReq" = 'YES' AND dln."DocEntry" = :list_of_cols_val_tab_del) AS a)
+                                           where "DocEntry"=:list_of_cols_val_tab_del;
+end if;
+end if;
+--------TN to block A/R  Inv If DC is not there------------
+
+if (:Object_type = '13') and (:transaction_type = 'A')
+then 
+select count(*) into c from INV1 O1 inner join OITM o2 on o1."ItemCode"=O2."ItemCode" 
+where O1."DocEntry"=:list_of_cols_val_tab_del and (O1."BaseType" not in ('13','15') )
+and O2."InvntItem"='Y';
+if c>0
+then
+error := -1;
+error_message := 'You can not add Invoice without Delivery Challan';
+end if;
+end if;
+
+-----------TN to block Payment terms update in BPMD-----------------------------------
+
+IF :transaction_type = ('U') AND (:Object_type = '2'  )
+then
+
+SELECT count(*) into d FROM ACRD T0 
+left join ACRD T1 on t0."CardCode" = T1."CardCode" AND t0."LogInstanc" = t1."LogInstanc" - 1 
+LEFT OUTER JOIN OCRD T2 ON T0."CardCode" = T2."CardCode" 
+WHERE T2."GroupNum" <> T1."GroupNum" AND T2."UserSign2" NOT IN (37,11,1)
+ and T2."CardCode"=:list_of_cols_val_tab_del;
+if d>0
+then 
+ error := 101;
+   error_message := 'You not able to update payment terms, contact with management.';
+  end if;
+  end if;
+  
+-------TN to block DC if SO if not there-------
+
+if (:transaction_type ='A' or :transaction_type ='U') and :object_type='15'
+then 
+SELECT count(*) into e FROM DLN1 WHERE "BaseType" NOT IN (15,17) AND "DocEntry" = :list_of_cols_val_tab_del;
+if e>0
+then 
+error :='1';
+error_message :='Please Create Sales Order First';
+end if;
+end if;
+
+------------------------------TN for block adding stcok in warehouse------------------------------------------------
+/*IF :transaction_type = ('A') AND (:Object_type = '59'  )
+then 
+SELECT count(*) into f FROM IGN1 pn1 
+INNER JOIN OITM itm ON pn1."ItemCode" = itm."ItemCode" 
+INNER JOIN OITB itb ON itm."ItmsGrpCod" = itb."ItmsGrpCod" 
+LEFT OUTER JOIN OWHS whs ON whs."WhsCode" = pn1."WhsCode" 
+WHERE whs."DropShip" = 'N' AND itb."U_PostTran" = 'NO' AND pn1."DocEntry" = :list_of_cols_val_tab_del;
+if f>0
+then
+  error := 1;
+  error_message := 'You not able to add stock for this item group, contact with management';
+  end if;
+end if;
+*/
+
+IF :transaction_type = ('A') AND (:Object_type = '20'  )
+then
+SELECT count(*) into g FROM PDN1 pn1 
+INNER JOIN OITM itm ON pn1."ItemCode" = itm."ItemCode" 
+INNER JOIN OITB itb ON itm."ItmsGrpCod" = itb."ItmsGrpCod" 
+LEFT OUTER JOIN OWHS whs ON whs."WhsCode" = pn1."WhsCode" 
+WHERE whs."DropShip" = 'N' AND itb."U_PostTran" = 'NO' AND pn1."DocEntry" = :list_of_cols_val_tab_del;
+if g>0
+then
+   error := 1;
+    error_message := 'You not able to add stock for this item group, contact with management';
+  end if;
+end if;
+
+ ------------Transaction Notification for update Customer Address mark_number/address code for unique purpose
+-------
+/*IF (:transaction_type ='A' or :transaction_type ='U') AND (:Object_type = '2') 
+then
+--LineNum :=
+(SELECT MIN("LineNum") into LineNum  FROM crd1 WHERE "CardCode" = :list_of_cols_val_tab_del );
+(SELECT Count("LineNum") into CountC  FROM CRD1 WHERE "CardCode" = :list_of_cols_val_tab_del );
+while (LineNum <= :CountC) 
+do  
+SELECT ifnull("CardCode" || '_' || CAST(("LineNum" + 1) AS nvarchar),'') into Mark_no FROM CRD1 
+WHERE "CardCode" = :list_of_cols_val_tab_del
+AND "LineNum" = :LineNum;
+if Mark_no is not null
+then
+ update CRD1 SET "U_MARK_No"=:Mark_no WHERE 
+ "CardCode"=(SELECT "CardCode"  FROM OCRD WHERE "CardCode" = :list_of_cols_val_tab_del) and "LineNum"=:LineNum;
+end if;
+LineNum := LineNum + 1;
+end while;
+end if;*/
+
+
+ IF (:transaction_type ='A' or :transaction_type ='U') AND (:Object_type = '2') 
+then
+(SELECT MIN("LineNum") into LineNum  FROM crd1 WHERE "CardCode" = :list_of_cols_val_tab_del );
+--LineNum :=0;
+(SELECT MAX("LineNum") into CountC  FROM crd1 WHERE "CardCode" = :list_of_cols_val_tab_del );
+while(LineNum <=:CountC)
+do 
+	(select count(*) into LineExist from crd1 where "LineNum"=:LineNum and "CardCode" = :list_of_cols_val_tab_del) ;
+	if LineExist>0
+		then
+			 SELECT ifnull("CardCode" || '_' || CAST(("LineNum" + 1) AS varchar),'') into Mark_no FROM CRD1 WHERE "CardCode" = 
+			(SELECT "CardCode"  FROM OCRD WHERE "CardCode" = :list_of_cols_val_tab_del)
+			 AND "LineNum" = :LineNum;
+		if ifnull(Mark_no,'')<>''
+		then
+			 update CRD1 SET "U_MARK_No"=:Mark_no WHERE "CardCode"=(SELECT "CardCode"  FROM OCRD WHERE "CardCode" = :list_of_cols_val_tab_del) and "LineNum"=:LineNum;
+		end if;
+	end if;
+LineNum := LineNum + 1;
+end while;
+end if;
+
+--------GSTIN For BP--------------------
+IF (:transaction_type ='A' or :transaction_type ='U') AND (:Object_type = '2') 
+then
+SELECT count(*) into  h FROM OCRD crd 
+LEFT OUTER JOIN CRD1 cd1 ON crd."CardCode" = cd1."CardCode" 
+LEFT OUTER JOIN OCST cst ON cd1."Country" = cst."Country" AND cd1."State" = cst."Code" 
+WHERE cst."GSTCode" <> left(cd1."GSTRegnNo", 2) AND crd."CardCode" = :list_of_cols_val_tab_del;
+if h>0
+then
+   error := 13;
+   error_message := 'Please put first 2 digit in GSTREGno same as state gstcode';
+  end if;
+end if;
+
+---------------------------- Brand TC Number-------------------------
+IF (:transaction_type = 'A' or :transaction_type = 'U') AND (:Object_type = '15') 
+then
+ l :=0;
+(SELECT COUNT("VisOrder") into CountI FROM DLN1 WHERE "DocEntry" = :list_of_cols_val_tab_del );
+while (l< :CountI)
+do
+ (select "ItemCode" into ItemCode from DLN1 where "DocEntry"=:list_of_cols_val_tab_del and "VisOrder" =:l);
+
+( SELECT COUNT(O2."DistNumber") into DistCount FROM SRI1 O1 INNER JOIN OSRN O2 ON O1."SysSerial" = O2."SysNumber" AND O1."ItemCode" = O2."ItemCode" 
+WHERE O1."ItemCode" = :ItemCode AND O1."BaseType" = '15' AND O1."BaseEntry" = :list_of_cols_val_tab_del);
+                m :=1; 
+while(m<= :DistCount)
+do
+(select A."MnfSerial" into DistNumber from(SELECT ROW_NUMBER() OVER () AS "Row", O2."MnfSerial" FROM SRI1 O1 INNER JOIN OSRN O2 ON O1."SysSerial" = O2."SysNumber" 
+AND O1."ItemCode" = O2."ItemCode" WHERE O1."ItemCode" = :ItemCode AND O1."BaseType" = '15' AND O1."BaseEntry" = :list_of_cols_val_tab_del
+)A where A."Row"=:m);
+		 
+(select A."SysNumber" into SysNumber from(SELECT ROW_NUMBER() OVER () AS "Row", O2."SysNumber" FROM SRI1 O1 INNER JOIN OSRN O2 ON O1."SysSerial" = O2."SysNumber" AND O1."ItemCode" = O2."ItemCode" 
+WHERE O1."ItemCode" = :ItemCode AND O1."BaseType" = '15' AND O1."BaseEntry" = :list_of_cols_val_tab_del)A where A."Row"=:m);
+		 
+ ( SELECT ifnull("TC_Number",0) into TCNumber FROM (SELECT a."DocEntry", a."MnfSerial", ROW_NUMBER() OVER (PARTITION BY "U_Category" ORDER BY "DocEntry","MnfSerial",a."SysNumber") AS "TC_Number" 
+FROM (SELECT dn."U_Category", dn."DocEntry", "MnfSerial", COUNT("MnfSerial") AS "Increment", OSRN."SysNumber", "U_RBCReq" 
+FROM DLN1 dn 
+INNER JOIN OITL ON dn."DocEntry" = OITL."ApplyEntry" AND dn."LineNum" = OITL."ApplyLine" AND OITL."ApplyType" = 15 
+INNER JOIN ITL1 ON OITL."LogEntry" = ITL1."LogEntry" 
+INNER JOIN OSRN ON ITL1."ItemCode" = OSRN."ItemCode" AND ITL1."MdAbsEntry" = OSRN."AbsEntry" 
+WHERE "U_RBCReq" = 'YES' GROUP BY dn."U_Category", dn."DocEntry", dn."VisOrder", "MnfSerial", OSRN."SysNumber", "U_RBCReq") A) AS 
+B WHERE B."DocEntry" = :list_of_cols_val_tab_del AND B."MnfSerial" = :DistNumber);
+		
+		if TCNumber<>0
+		then
+		update OSRN SET "U_TC_Num"=:TCNumber WHERE "MnfSerial"=:DistNumber AND "ItemCode"=:ItemCode AND "SysNumber"=:SysNumber;
+		end if;
+	m= :m + 1;
+end while;
+ l = :l + 1;
+end while;
+end if;
+---------------------------HSN TN FOR ALL TRANSACTION-------------------------------------
+
+IF :transaction_type = ('A') AND (:Object_type = '23' OR :Object_type = '17' OR :Object_type = '15' OR :Object_type = '16'
+ OR :Object_type = '203' OR :Object_type = '13' OR :Object_type = '14' OR :Object_type = '540000006' OR :Object_type = '22'
+  OR :Object_type = '20' OR :Object_type = '21' OR :Object_type = '204' OR :Object_type = '18' OR :Object_type = '19') 
+then
+
+LineNum1 :=0;
+(                          Select  CASE WHEN :Object_type = '23' THEN (SELECT MAX(IFNULL("VisOrder",0))  FROM OQUT inv 
+                           INNER JOIN QUT1 iv1 ON inv."DocEntry" = iv1."DocEntry" 
+                           WHERE iv1."DocEntry" = :list_of_cols_val_tab_del AND inv."UserSign" NOT IN (7,25,11,26,30) 
+                           AND iv1."ItemCode" NOT IN ('FRT01','FOR03','FRT03','FRT02'))
+                           
+                            WHEN :Object_type = '17' THEN (SELECT MAX(IFNULL("VisOrder", 0)) FROM ORDR inv 
+                            INNER JOIN RDR1 iv1 ON inv."DocEntry" = iv1."DocEntry" WHERE inv."DocEntry" = :list_of_cols_val_tab_del 
+                            AND inv."UserSign" NOT IN (7,25,11,26,30) AND iv1."ItemCode" NOT IN ('FRT01','FOR03','FRT03','FRT02')) 
+                            
+                            WHEN :object_type = '15' THEN (SELECT MAX(IFNULL("VisOrder", 0))  FROM ODLN inv INNER JOIN DLN1 iv1 
+                            ON inv."DocEntry" = iv1."DocEntry" WHERE inv."DocEntry" = :list_of_cols_val_tab_del AND 
+                            inv."UserSign" NOT IN (7,28,25,11,26,30) AND iv1."ItemCode" NOT IN ('FRT01','FOR03','FRT03','FRT02')) 
+                            
+                            WHEN :object_type = '16' THEN (SELECT MAX(IFNULL("VisOrder", 0)) FROM ORDN inv INNER JOIN RDN1 iv1 
+                            ON inv."DocEntry" = iv1."DocEntry" WHERE inv."DocEntry" = :list_of_cols_val_tab_del AND inv."UserSign" NOT IN (7,25,11,26,30)
+                             AND iv1."ItemCode" NOT IN ('FRT01','FOR03','FRT03','FRT02')) 
+                             
+                             WHEN :object_type = '203' THEN (SELECT MAX(IFNULL("VisOrder",0))  FROM ODPI inv INNER JOIN DPI1 iv1 ON inv."DocEntry" = iv1."DocEntry" 
+                             WHERE inv."DocEntry" = :list_of_cols_val_tab_del AND inv."UserSign" NOT IN (7,25,11,26,30) AND 
+                             iv1."ItemCode" NOT IN ('FRT01','FOR03','FRT03','FRT02')) 
+                             
+                             WHEN :object_type = '13' THEN (SELECT MAX(IFNULL("VisOrder",0)) FROM OINV inv INNER JOIN INV1 iv1 ON inv."DocEntry" = iv1."DocEntry" 
+                             WHERE inv."DocEntry" = :list_of_cols_val_tab_del AND inv."UserSign" NOT IN (7,25,11,26,30) AND 
+                             iv1."ItemCode" NOT IN ('FRT01','FOR03','FRT03','FRT02'))
+                             
+                           WHEN :object_type = '14' THEN (SELECT MAX(IFNULL("VisOrder",0))   FROM ORIN inv INNER JOIN RIN1 iv1 ON inv."DocEntry" = iv1."DocEntry"
+                            WHERE inv."DocEntry" = :list_of_cols_val_tab_del AND inv."UserSign" NOT IN (7,25,11,26,30) AND 
+                            iv1."ItemCode" NOT IN ('FRT01','FOR03','FRT03','FRT02')) ELSE NULL END into CountB from dummy
+                           );
+while(LineNum1<=:CountB)
+do
+(
+               Select  CASE WHEN :Object_type = '23' THEN
+                     
+              (SELECT (CASE WHEN ITM."ItemClass" = 1 THEN iv1."SacEntry" WHEN ITM."ItemClass" = 2 THEN iv1."HsnEntry" ELSE NULL END)  
+				   FROM OQUT inv INNER JOIN QUT1 iv1 ON inv."DocEntry" = iv1."DocEntry" 
+				   LEFT OUTER JOIN OITM itm ON iv1."ItemCode" = itm."ItemCode" 
+				   WHERE iv1."DocEntry" = :list_of_cols_val_tab_del AND "VisOrder" = :LineNum1 AND iv1."ObjType" = :Object_type AND
+				    inv."UserSign" NOT IN (7,25,11,26,30))
+
+                   WHEN :Object_type = '17' THEN 
+                    
+                 ( SELECT (CASE WHEN ITM."ItemClass" = 1 THEN iv1."SacEntry" WHEN ITM."ItemClass" = 2 THEN iv1."HsnEntry" ELSE NULL END)  
+					FROM ORDR inv INNER JOIN RDR1 iv1 ON inv."DocEntry" = iv1."DocEntry" LEFT OUTER JOIN OITM itm ON iv1."ItemCode" = itm."ItemCode" 
+					WHERE iv1."DocEntry" = :list_of_cols_val_tab_del AND "VisOrder" = :LineNum1 AND iv1."ObjType" = :Object_type
+					 AND inv."UserSign" NOT IN (7,25,11,26,30))
+   
+                   WHEN :object_type = '15'    THEN
+  
+                 (  SELECT (CASE WHEN ITM."ItemClass" = 1 THEN iv1."SacEntry" WHEN ITM."ItemClass" = 2 THEN iv1."HsnEntry" ELSE NULL END)    
+					 FROM ODLN inv INNER JOIN DLN1 iv1 ON inv."DocEntry" = iv1."DocEntry" LEFT OUTER JOIN OITM itm ON iv1."ItemCode" = itm."ItemCode"
+					 WHERE iv1."DocEntry" = :list_of_cols_val_tab_del AND "VisOrder" = :LineNum1 AND iv1."ObjType" = :Object_type 
+					 AND inv."UserSign" NOT IN (7,25,28,11,26,30))
+       
+                   WHEN :object_type = '16' THEN    
+   
+                  ( SELECT (CASE WHEN ITM."ItemClass" = 1 THEN iv1."SacEntry" WHEN ITM."ItemClass" = 2 THEN iv1."HsnEntry" ELSE NULL END)  
+					 FROM ORDN inv INNER JOIN RDN1 iv1 ON inv."DocEntry" = iv1."DocEntry" LEFT OUTER JOIN OITM itm ON iv1."ItemCode" = itm."ItemCode" 
+					 WHERE iv1."DocEntry" = :list_of_cols_val_tab_del AND "VisOrder" = :LineNum1 AND iv1."ObjType" = :Object_type AND 
+					 inv."UserSign" NOT IN (7,25,11,26,30))
+
+                   WHEN :object_type = '203'   THEN
+ 
+                  ( SELECT (CASE WHEN ITM."ItemClass" = 1 THEN iv1."SacEntry" WHEN ITM."ItemClass" = 2 THEN iv1."HsnEntry" ELSE NULL END)   
+					 FROM ODPI inv INNER JOIN DPI1 iv1 ON inv."DocEntry" = iv1."DocEntry" LEFT OUTER JOIN OITM itm ON iv1."ItemCode" = itm."ItemCode" 
+					 WHERE iv1."DocEntry" = :list_of_cols_val_tab_del AND "VisOrder" = :LineNum1 AND iv1."ObjType" = :Object_type AND 
+					 inv."UserSign" NOT IN (7,25,11,26,30))
+
+                  WHEN :object_type = '13' THEN  
+             ( SELECT (CASE WHEN ITM."ItemClass" = 1 THEN iv1."SacEntry" WHEN ITM."ItemClass" = 2 THEN iv1."HsnEntry" ELSE NULL END)  
+					 FROM OINV inv INNER JOIN INV1 iv1 ON inv."DocEntry" = iv1."DocEntry" LEFT OUTER JOIN OITM itm ON iv1."ItemCode" = itm."ItemCode" 
+					 WHERE iv1."DocEntry" = :list_of_cols_val_tab_del AND "VisOrder" = :LineNum1 AND iv1."ObjType" = :Object_type AND 
+					 inv."UserSign" NOT IN (7,25,11,26,30))
+
+                  WHEN :object_type = '14' THEN
+         ( SELECT (CASE WHEN ITM."ItemClass" = 1 THEN iv1."SacEntry" WHEN ITM."ItemClass" = 2 THEN iv1."HsnEntry" ELSE NULL END) 
+					FROM ORIN inv INNER JOIN RIN1 iv1 ON inv."DocEntry" = iv1."DocEntry" LEFT OUTER JOIN OITM itm ON iv1."ItemCode" = itm."ItemCode" 
+					WHERE iv1."DocEntry" = :list_of_cols_val_tab_del AND "VisOrder" = :LineNum1 AND iv1."ObjType" = :Object_type AND inv."UserSign" NOT IN (7,25,11,26,30)) END
+					into ROW_HSN from Dummy 
+ 
+  );
+  (
+					Select  CASE WHEN :Object_type = '23' THEN
+          (SELECT (CASE WHEN ITM."ItemClass" = 1 THEN ITM."SACEntry" WHEN ITM."ItemClass" = 2 THEN itm."ChapterID" ELSE NULL END) 
+					 FROM OQUT inv INNER JOIN QUT1 iv1 ON inv."DocEntry" = iv1."DocEntry" LEFT OUTER JOIN OITM itm ON iv1."ItemCode" = itm."ItemCode" 
+					 WHERE iv1."DocEntry" = :list_of_cols_val_tab_del AND "VisOrder" = :LineNum1 AND iv1."ObjType" = :Object_type AND 
+					 inv."UserSign" NOT IN (7,25,11,26,30))
+
+                     WHEN :Object_type = '17' THEN 
+        (SELECT (CASE WHEN ITM."ItemClass" = 1 THEN ITM."SACEntry" WHEN ITM."ItemClass" = 2 THEN itm."ChapterID" ELSE NULL END)  
+					 FROM ORDR inv INNER JOIN RDR1 iv1 ON inv."DocEntry" = iv1."DocEntry" LEFT OUTER JOIN OITM itm ON iv1."ItemCode" = itm."ItemCode" 
+					 WHERE iv1."DocEntry" = :list_of_cols_val_tab_del AND "VisOrder" = :LineNum1 AND iv1."ObjType" = :Object_type AND 
+					 inv."UserSign" NOT IN (7,25,11,26,30))
+                     WHEN :object_type = '15'    THEN    
+      (SELECT (CASE WHEN ITM."ItemClass" = 1 THEN ITM."SACEntry" WHEN ITM."ItemClass" = 2 THEN itm."ChapterID" ELSE NULL END)  
+					FROM ODLN inv INNER JOIN DLN1 iv1 ON inv."DocEntry" = iv1."DocEntry" LEFT OUTER JOIN OITM itm ON iv1."ItemCode" = itm."ItemCode" 
+					WHERE iv1."DocEntry" = :list_of_cols_val_tab_del AND "VisOrder" = :LineNum1 AND iv1."ObjType" = :Object_type AND 
+					inv."UserSign" NOT IN (7,25,11,26,30))
+       
+                    WHEN :object_type = '16' THEN  
+          ( SELECT (CASE WHEN ITM."ItemClass" = 1 THEN ITM."SACEntry" WHEN ITM."ItemClass" = 2 THEN itm."ChapterID" ELSE NULL END) 
+					 FROM ORDN inv INNER JOIN RDN1 iv1 ON inv."DocEntry" = iv1."DocEntry" LEFT OUTER JOIN OITM itm ON iv1."ItemCode" = itm."ItemCode" 
+					 WHERE iv1."DocEntry" = :list_of_cols_val_tab_del AND "VisOrder" = :LineNum1 AND iv1."ObjType" = :Object_type AND 
+					 inv."UserSign" NOT IN (7,25,11,26,30))
+       
+                    WHEN :object_type = '203'   THEN  
+               (SELECT (CASE WHEN ITM."ItemClass" = 1 THEN ITM."SACEntry" WHEN ITM."ItemClass" = 2 THEN itm."ChapterID" ELSE NULL END)  
+					 FROM ODPI inv INNER JOIN DPI1 iv1 ON inv."DocEntry" = iv1."DocEntry" LEFT OUTER JOIN OITM itm ON iv1."ItemCode" = itm."ItemCode" 
+					 WHERE iv1."DocEntry" = :list_of_cols_val_tab_del AND "VisOrder" = :LineNum1 AND iv1."ObjType" = :Object_type AND
+					  inv."UserSign" NOT IN (7,25,11,26,30))
+ 
+                     WHEN :object_type = '13' THEN   
+            (SELECT (CASE WHEN ITM."ItemClass" = 1 THEN ITM."SACEntry" WHEN ITM."ItemClass" = 2 THEN itm."ChapterID" ELSE NULL END) 
+					 FROM OINV inv INNER JOIN INV1 iv1 ON inv."DocEntry" = iv1."DocEntry" LEFT OUTER JOIN OITM itm ON iv1."ItemCode" = itm."ItemCode" 
+					 WHERE iv1."DocEntry" = :list_of_cols_val_tab_del AND "VisOrder" = :LineNum1 AND iv1."ObjType" = :Object_type
+					  AND inv."UserSign" NOT IN (7,25,11,26,30))
+                    WHEN :object_type = '14' THEN
+            (SELECT (CASE WHEN ITM."ItemClass" = 1 THEN ITM."SACEntry" WHEN ITM."ItemClass" = 2 THEN itm."ChapterID" ELSE NULL END) 
+					 FROM ORIN inv INNER JOIN RIN1 iv1 ON inv."DocEntry" = iv1."DocEntry" LEFT OUTER JOIN OITM itm ON iv1."ItemCode" = itm."ItemCode" 
+					 WHERE iv1."DocEntry" = :list_of_cols_val_tab_del AND "VisOrder" = :LineNum1 AND iv1."ObjType" = :Object_type AND 
+					 inv."UserSign" NOT IN (7,25,11,26,30)) END
+					 into ITEM_HSN from Dummy 
+
+  );
+if :ROW_HSN<>:ITEM_HSN
+then
+error :=10;
+error_message :='HSN selction is wrong at line '|| cast(:LineNum1+1 as char);
+end if;
+ LineNum1 = :LineNum1 + 1;
+end while;
+end if;
+
+---------------------Duplicate refernce 
+IF  (:transaction_type ='A' OR :transaction_type ='U') AND (:Object_type ='17'OR :Object_type ='112') 
+then 
+
+(SELECT count(*) into C1 FROM "@BPREFNO" WHERE "Code" IN (SELECT IFNULL("NumAtCard", '') FROM ORDR WHERE "DocEntry" = :list_of_cols_val_tab_del));
+if c1=0 
+then
+
+if :Object_type='17'
+then
+select  ifnull("NumAtCard",'') into numatCard1  from ORDR where "DocEntry"= :list_of_cols_val_tab_del;
+select "PIndicator" into Pind  from ORDR where "DocEntry"= :list_of_cols_val_tab_del;
+select "CardCode" into cardcode2 from ORDR where "DocEntry"= :list_of_cols_val_tab_del;
+Select count(*) into counter from ORDR where ("CardCode"=:cardcode2 and "PIndicator"=:Pind and "NumAtCard"=:numatCard1) and CANCELED not in('Y','C');
+if counter>1
+then
+ error := 1;
+ error_message := 'Duplicate custmer ref not allowed...';
+end if;
+end if;
+
+if :Object_type='112'
+then
+select  ifnull("NumAtCard",'') into numatCard1  from ODRF where "DocEntry"= :list_of_cols_val_tab_del;
+select "PIndicator" into Pind  from ODRF where "DocEntry"= :list_of_cols_val_tab_del;
+select "CardCode" into cardcode2 from ODRF where "DocEntry"= :list_of_cols_val_tab_del;
+Select  count(*) into counter from ODRF where ("CardCode"=:cardcode2 and "PIndicator"=:Pind and "NumAtCard"=:numatCard1)and "ObjType"='17';
+if counter>1
+then
+ error := 1;
+ error_message := 'Duplicate custmer ref not allowed...';
+end if;
+end if;
+end if;
+end if;
+
+--------------------------------------------------------------------------------------------------------------------------------
+
+-- Select the return values
+select :error, :error_message FROM dummy;
+
+end;
