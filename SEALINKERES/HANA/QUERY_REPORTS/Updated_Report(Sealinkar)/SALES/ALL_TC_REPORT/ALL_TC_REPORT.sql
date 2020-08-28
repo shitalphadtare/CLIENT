@@ -1,0 +1,2 @@
+SELECT T0."DocEntry", T0."DocNum", T0."DocType", T0."DocDate", T0."CardName", T1."ItemCode", T1."Dscription", T0."U_DTCWCReq", T0."U_DFVReq", T0."U_DTCNum", T0."U_DWCNum", T0."U_DFVNum" 
+FROM ODLN T0 INNER JOIN DLN1 T1 ON T0."DocEntry" = T1."DocEntry"
