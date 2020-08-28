@@ -1,0 +1,1 @@
+SELECT T0."ItemCode", T0."ItemName", T1."Chapter", T1."Heading", T1."SubHeading" FROM OITM T0 INNER JOIN OCHP T1 ON T0."ChapterID" = T1."AbsEntry";
