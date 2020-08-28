@@ -1,0 +1,2 @@
+SELECT T0."DocNum" AS "SO No", T0."DocDate" AS "SO Date", T0."CardCode" AS "Customer Code", T0."CardName" AS "Customer Name"
+ FROM ORDR T0 WHERE CAST(T0."CreateDate" AS varchar) = CAST(NOW() AS varchar)

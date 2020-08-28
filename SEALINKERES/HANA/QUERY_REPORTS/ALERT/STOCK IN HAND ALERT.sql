@@ -1,0 +1,2 @@
+SELECT T1."WhsName", T0."ItemCode", MAX(T0."Dscription") AS "Item Name", SUM(T0."InQty" - T0."OutQty") AS "Available Quantity" 
+FROM OINM T0 INNER JOIN OWHS T1 ON T1."WhsCode" = T0."Warehouse" GROUP BY T1."WhsName", T0."ItemCode" HAVING SUM(T0."InQty" - T0."OutQty") > 0

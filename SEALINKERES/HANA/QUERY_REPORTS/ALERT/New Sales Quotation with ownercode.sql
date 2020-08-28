@@ -1,0 +1,1 @@
+SELECT T0."DocNum" AS "SQ No", T0."DocDate" AS "SQ Date", T0."CardCode" AS "Customer Code", T0."CardName" AS "Customer Name", T0."OwnerCode" FROM OQUT T0 WHERE CAST(T0."CreateDate" AS varchar) = CAST(NOW() AS varchar);
