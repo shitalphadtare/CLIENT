@@ -1,0 +1,1 @@
+SELECT "U_ItemDesc2" FROM OITM WHERE "ItemCode" = $[POR1."ItemCode"];
