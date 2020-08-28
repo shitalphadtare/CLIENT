@@ -1,0 +1,78 @@
+dln1.U_Brand
+=>	SELECT T0.[U_Brand] FROM OITM T0 WHERE T0.[ItemCode] =$[$38.1.0]
+=>	auto refresh => Item No.
+
+dln1.U_Category
+=> 	SELECT T0.[U_Category] FROM OITM T0 WHERE T0.[ItemCode] =$[$38.1.0]
+=>	auto refresh => Item No.
+
+odln.U_DTCNum (TC Number)
+=>	select count(U_DTCWCReq)+(select U_TCNum from [@TC_NUM] where code='TC') 
+	from odln dln
+	inner join DLN1 DN1 ON DLN.DOCENTRY=DN1.DOCENTRY
+	where U_DTCWCReq='TC'  AND DN1.u_RTCREQ='YES'and  DocNum<=$[ODLN.Docnum]
+=>	TC/WC Required	
+
+odln.U_DWCNum  (WC Number)
+=>	select count(U_DTCWCReq)+(select U_TCNum from [@TC_NUM] where code='WC') 
+	from odln dln
+	inner join DLN1 DN1 ON DLN.DOCENTRY=DN1.DOCENTRY
+	where U_DTCWCReq='WC'  AND DN1.U_RWCReq='YES'and  DocNum<=$[ODLN.Docnum]
+=>	TC/WC Required	
+
+odln.U_DFVNum 	
+=>	select count(U_dfvreq)+(select U_TCNum from [@TC_NUM] where code='FV') 
+	from odln dln
+	INNER JOIN DLN1 DN1 ON DLN.DocEntry=DN1.DocEntry
+	left outer join ocrd crd on dln.cardcode=crd.CardCode
+	where U_DFVReq='Yes' and crd.U_FormVReq='Yes' AND DN1.U_TCReq='YES'  and  DocNum<=$[ODLN.Docnum]
+=>	
+
+
+DLN1.U_RBCNUM
+=>	declare @Autono int;
+	declare @final int;
+	declare @previous nvarchar(20);
+	set @Autono=$[$38.0.number]-1;
+		if @Autono > 0
+		begin
+		set  @previous=(select max(U_RBCNum)  from DLN1 where  U_RBCReq='YES' AND U_category=$[$38.U_Category.0])
+			if @previous <>''
+			begin
+				if @Autono >0 
+				begin
+				set  @final =cast(@previous as int)+$[$38.0.number]
+				end 
+		
+				if @Autono=0
+				begin
+					set  @final =cast(@previous as int)+@Autono
+				end 
+			end
+
+			if @previous =''
+			begin
+				set  @final =(select COUNT(u_CATEGORY)+(select cast(U_TCNum as int)  from [@TC_NUM] where NAME=$[$38.U_Category.0])+@Autono
+					from DLN1 
+					inner join odln on dln1.docentry=odln.docentry
+					where U_RBCReq='YES' AND U_category=$[$38.U_Category.0] and odln.docnum<=$[odln.docnum])
+			end
+			select @final for browse
+		end
+	
+	if @Autono=0
+	begin 
+		set  @previous=(select max(U_RBCNum)  from DLN1 where  U_RBCReq='YES' AND U_category=$[$38.U_Category.0])
+		if @previous <>''
+			begin
+				set  @final =cast(@previous as int)+1
+			end
+		if @previous =''
+			begin
+				set  @final =(select COUNT(u_CATEGORY)+(select U_TCNum from [@TC_NUM] where NAME=$[$38.U_Category.0])
+					from DLN1
+					inner join odln on dln1.docentry=odln.docentry
+					where U_RBCReq='YES' AND U_category=$[$38.U_Category.0] and odln.docnum<=$[odln.docnum])
+			end
+			select @final for browse
+	end	

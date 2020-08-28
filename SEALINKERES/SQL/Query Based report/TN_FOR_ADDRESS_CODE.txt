@@ -1,0 +1,22 @@
+IF @transaction_type IN ('A','U') AND (@Object_type = '2') 
+begin
+declare @CountC int;
+declare @LineNum int;
+declare @CardCode nvarchar(max);
+declare @Mark_no nvarchar(max);
+set @LineNum=0;
+
+set @CountC=(select Count(linenum) from crd1 where CardCode =@list_of_cols_val_tab_del );
+set @CardCode=(select cardcode from ocrd where CardCode =@list_of_cols_val_tab_del );
+while(@LineNum<@CountC)
+begin
+set @Mark_no=(select cardcode+'_'+CAST(LineNum as varchar) from CRD1 where cardcode=@cardcode and linenum=@LineNum);
+if @Mark_no<>''
+begin
+
+		update CRD1 SET U_MARK_NO=@Mark_no WHERE cardcode=@CardCode and linenum=@LineNum;
+end
+Set @LineNum = @LineNum + 1
+end
+end
+
